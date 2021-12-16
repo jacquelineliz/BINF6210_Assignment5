@@ -205,9 +205,9 @@ Carabidae_DNA_string_set_distance = dist.dna(as.DNAbin(Carabidae_DNA_string_set_
 #Attaching DECIPHER library
 library(DECIPHER)
 
-Carabidae_phylogeny = IdClusters(myDistMatrix = Carabidae_DNA_string_set_distance, type = "dendrogram")
-par(cex = 0.5)
-plot(Carabidae_phylogeny, ylab = "Kimura's 2-parameters distance")
+Carabidae_phylogeny = IdClusters(myDistMatrix = Carabidae_DNA_string_set_distance, type = "dendrogram", method = "NJ")
+par(cex = 0.4)
+plot(Carabidae_phylogeny, ylab = "Neighbour joining distance based on Kimura's 2-parameters distance")
 ```
 
 ##Part 4/6 (Sorting data points into communities)
