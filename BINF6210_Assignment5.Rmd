@@ -1,0 +1,434 @@
+---
+title: "BINF6210_Assignment5"
+author: "Jacqueline Wu"
+date: "15/12/2021"
+output: 
+  pdf_document: 
+    fig_width: 10
+    fig_height: 10
+    fig_crop: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Please Note: There appears to be a problem exporting the figure created using the function maps::map. The points on the map are consistently different from those obtained in R.
+
+#Supplementary R Code
+
+The following code demonstrates how I chose the region (country) for assignment 5.
+
+```{r}
+#Reading-in the data
+Carabidae_data = read.delim("http://www.boldsystems.org/index.php/API_Public/combined?taxon=Carabidae&format=tsv")
+
+#For time sake, I narrowed down the countries by looking at BOLD
+#Country                Australia Austria Bolivia South Africa  France  Pakistan  Indonesia Finland Norway  Netherlands Kenya Argentina China Ecuador Italy Mexico  Spain Peru
+#Number of data points  814       713     466     424           403     401       400       360     352     337         273   229       168   142     131   120     112   105
+
+Potential_Countries = c("Australia","Austria","Bolivia","South Africa","France","Pakistan","Indonesia","Finland","Norway","Netherlands","Kenya","Argentina","China","Ecuador","Italy","Mexico","Spain","Peru")
+
+for(i in 1:length(Potential_Countries)){
+  assign((sprintf("%s_Data_Points", Potential_Countries[i])), Carabidae_data[Carabidae_data$country == Potential_Countries[i],])
+
+#The data points need to have known coordinates to separate them spatially. They also need a common gene. (for loop extended to check for both conditions)
+  temporary_data_frame = Carabidae_data[Carabidae_data$country == Potential_Countries[i],]
+  second_temporary_data_frame = temporary_data_frame[(is.na(temporary_data_frame$lat) == FALSE & is.na(temporary_data_frame$lon) == FALSE & temporary_data_frame$markercode == "COI-5P"), ]
+  assign((sprintf("%s_Data_Points_with_lat_and_lon", Potential_Countries[i])), second_temporary_data_frame)
+
+  if(nrow(second_temporary_data_frame) > 50){
+    #Need to add 1 to 50 to account for NAs
+    if(length(unique(second_temporary_data_frame$species_name)) > 51){
+      print(paste(Potential_Countries[i], " has enough species for the analysis.", collapse = "", sep = ""))
+    }
+  }
+}
+
+#The output informed me that I could choose Austria, France, Finland, Norway or Italy.
+#Based on the output and quick manual exploration, I chose France.
+```
+
+#Assignment 5 Code
+
+##Part 1/6 (Reading-in data and general organization)
+
+```{r}
+#Reading-in the data of interest
+All_Carabidae_data_points_France = read.delim("http://www.boldsystems.org/index.php/API_Public/combined?taxon=Carabidae&geo=France&format=tsv")
+
+#Export the data to a separate file for reproducibility (static copy of the data set)
+sink("French_Carabidae_Static_Copy.txt")
+for(i in 1:nrow(All_Carabidae_data_points_France)){
+  for(e in 1:ncol(All_Carabidae_data_points_France)){
+    cat(All_Carabidae_data_points_France[i, e])
+    if(e < ncol(All_Carabidae_data_points_France)){
+      cat(";")
+    }
+  }
+  if(i < nrow(All_Carabidae_data_points_France)){
+    cat("\n")
+  }
+}
+sink()
+
+#Some filtration
+Carabidae_COI5P_data_points_with_lat_and_lon_France = All_Carabidae_data_points_France[(is.na(All_Carabidae_data_points_France$lat) == FALSE & is.na(All_Carabidae_data_points_France$lon) == FALSE & All_Carabidae_data_points_France$markercode == "COI-5P"), ]
+Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France = Carabidae_COI5P_data_points_with_lat_and_lon_France[Carabidae_COI5P_data_points_with_lat_and_lon_France$species_name != "", ]
+
+#Organizing the data
+sink("sequences_assignment5.txt")
+for(i in 1:nrow(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France)){
+  sink("sequences_assignment5.txt", append = TRUE)
+  cat(paste(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France$species_name[i], ";", Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France$nucleotides[i], collapse = "", sep = ""))
+  sink()
+  if(i < nrow(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France)){
+    sink("sequences_assignment5.txt", append = TRUE)
+    cat("\n")
+    sink()
+  }
+}
+sink()
+
+species_sequences_assignment5 = read.csv("sequences_assignment5.txt", header = FALSE, sep = ";")
+```
+
+##Part 2/6 (Visual representation of data filtration)
+
+The following code was written to create a Venn diagram showing sample size at each filtration step.
+
+```{r}
+labels_venn_diagram = c(paste("All Carabidae data points from France (n = ", nrow(All_Carabidae_data_points_France), ")", collapse = "", sep = ""))
+
+symbols(x = 0, y = 0, xlim = c(-55, 55), ylim = c(-55, 55), col.axis = "transparent", col.lab = "transparent", bty = "n", xaxt = "n", yaxt = "n", circles = 50, bg = "light blue", inches = FALSE)
+
+#Placement is 1 less than the upper limit of the circle
+text(x = 0, y = 49, labels = labels_venn_diagram, cex = 0.5)
+
+new_circle_diameter = (nrow(Carabidae_COI5P_data_points_with_lat_and_lon_France)/nrow(All_Carabidae_data_points_France))*100
+
+#The lines below were removed for clarity
+#symbols(x = 0, y = 0, circles = (new_circle_diameter / 2), bg = "green", inches = FALSE, add = TRUE)
+
+#text(x = 0, y = ((new_circle_diameter / 2) - 1), labels = "Carabidae COI-5P data points with coordinates from France", cex = 0.5)
+
+new_circle_diameter_2 = (nrow(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France)/nrow(Carabidae_COI5P_data_points_with_lat_and_lon_France)) * new_circle_diameter
+
+symbols(x = 0, y = 0, circles = (new_circle_diameter_2 / 2), bg = "yellow", inches = FALSE, add = TRUE)
+
+text(x = 0, y = ((new_circle_diameter_2 / 2) - 1), labels = "Carabidae COI-5P data points from France with coordinates and species identification", cex = 0.5)
+```
+
+##Part 3/6 (General phylogeny of Carabidae)
+
+The following code shows how I found the phylogenetic relation between species in the filtered data set and how I created to dendrogram to visually represent it.
+
+```{r}
+#Filtering the sequences to keep only one for each species (for the dendrogram)
+species_to_include = unique(species_sequences_assignment5$V1)
+
+sink("filtered_data_frame.txt")
+cat("")
+sink()
+
+for(i in 1:length(species_to_include)){
+  assign(paste(species_to_include[i], "_data_frame"), species_sequences_assignment5[species_sequences_assignment5$V1 == species_to_include[i], ])
+  third_temporary_data_frame = species_sequences_assignment5[species_sequences_assignment5$V1 == species_to_include[i], ]
+  data_indices = c()
+  if(nrow(third_temporary_data_frame) > 1){
+    for(q in 1:nrow(third_temporary_data_frame)){
+      if(nchar(third_temporary_data_frame$V2[q]) < 700 & nchar(third_temporary_data_frame$V2[q]) > 500){
+        data_indices = c(data_indices, q)
+      }
+    }
+    if(is.null(data_indices)){
+      sink("filtered_data_frame.txt", append = TRUE)
+      cat(paste(third_temporary_data_frame$V1[1], ";", third_temporary_data_frame$V2[1], collapse = "", sep = ""))
+      if(i < length(species_to_include)){
+        cat("\n")
+      }
+      sink()      
+    }
+    else{
+      a = sample(x = data_indices, size = 1)
+      sink("filtered_data_frame.txt", append = TRUE)
+      cat(paste(third_temporary_data_frame$V1[a], ";", third_temporary_data_frame$V2[a], collapse = "", sep = ""))
+      if(i < length(species_to_include)){
+        cat("\n")
+      }
+      sink()
+    }
+  }
+  else{
+    sink("filtered_data_frame.txt", append = TRUE)
+    cat(paste(third_temporary_data_frame$V1, ";", third_temporary_data_frame$V2, collapse = "", sep = ""))
+    if(i < length(species_to_include)){
+      cat("\n")
+    }
+    sink()
+  }
+}
+
+filtered_data_frame_France_Carabidae = read.csv("filtered_data_frame.txt", sep = ";", header = FALSE)
+
+#Determining the phylogeny
+
+#Converting sequence data to a fasta file for compatibility with the msa readDNAStringSet function.
+sink("filtered_data_frame_France_Carabidae_fasta_version.fasta")
+cat("")
+sink()
+for(i in 1:nrow(filtered_data_frame_France_Carabidae)){
+  sink("filtered_data_frame_France_Carabidae_fasta_version.fasta", append = TRUE)
+  cat(">")
+  cat(filtered_data_frame_France_Carabidae$V1[i])
+  cat("\n")
+  cat(filtered_data_frame_France_Carabidae$V2[i])
+  #If statement to avoid an empty line at the end of the file
+  if(i < nrow(filtered_data_frame_France_Carabidae)){
+    cat("\n")
+  }
+  sink()
+}
+
+#The libraries were read-in directly before their use to minimize any conflicts between functions.
+#Attaching msa library
+library(msa)
+
+Carabidae_DNA_string_set = readDNAStringSet("filtered_data_frame_France_Carabidae_fasta_version.fasta")
+Carabidae_DNA_string_set_alignment = msa(Carabidae_DNA_string_set, method = "Muscle")
+
+#Attaching ape library
+library(ape)
+
+Carabidae_DNA_string_set_distance = dist.dna(as.DNAbin(Carabidae_DNA_string_set_alignment), as.matrix = TRUE, pairwise.deletion = TRUE)
+
+#Attaching DECIPHER library
+library(DECIPHER)
+
+Carabidae_phylogeny = IdClusters(myDistMatrix = Carabidae_DNA_string_set_distance, type = "dendrogram")
+par(cex = 0.5)
+plot(Carabidae_phylogeny, ylab = "Kimura's 2-parameters distance")
+```
+
+##Part 4/6 (Sorting data points into communities)
+
+Communities were sorted using a grid system as detailed in the code below.
+
+```{r}
+upper_lat = max(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France$lat)
+lower_lat = min(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France$lat)
+
+upper_lon = max(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France$lon)
+lower_lon = min(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France$lon)
+
+#1 degree latitude by 1 degree longitude does not give a consistent area (more area towards the equator).
+
+upper_lon_lower_lat = c(upper_lon, lower_lat)
+upper_lon_upper_lat = c(upper_lon, upper_lat)
+lower_lon_lower_lat = c(lower_lon, lower_lat)
+lower_lon_upper_lat = c(lower_lon, upper_lat)
+
+#Attaching geosphere
+library(geosphere)
+
+distance_lon = distGeo(p1 = upper_lon_lower_lat, p2 = lower_lon_lower_lat)
+distance_lat = distGeo(p1 = upper_lon_upper_lat, p2 = upper_lon_lower_lat)
+distance_lon_km = ((as.integer(distance_lon))/1000) + 1
+distance_lat_km = ((as.integer(distance_lat))/1000) + 1
+
+#Figuring out how many communities along the latitude and along the longitude given the decision that each km^2 will be a separate community
+communities_dimensions = c(as.integer(distance_lon_km) + 1, as.integer(distance_lat_km) + 1)
+
+#Personal function to move data points to communities based on the latitude and longitude
+community_classification = function(reference_lat, reference_lon, lat, lon, communities_lon){
+  distance_lon = distGeo(p1 = c(reference_lon, reference_lat), p2 = c(lon, reference_lat))
+  distance_lat = distGeo(p1 = c(reference_lon, reference_lat), p2 = c(reference_lon, lat))
+  community_number = ((as.integer(distance_lat / 1000)) * communities_lon) + ((as.integer(distance_lon / 1000)) + 1)
+  return(community_number)
+}
+
+communities_numbers = c()
+for(i in 1:nrow(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France)){
+  communities_numbers = c(communities_numbers, community_classification(reference_lat = upper_lat, reference_lon = lower_lon, lat = Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France$lat[i], lon = Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France$lon[i], communities_lon = communities_dimensions[1]))
+}
+
+France_Carabidae_with_communities = base::cbind(Carabidae_COI5P_data_points_with_species_identification_and_coordinates_France, communities_numbers)
+
+communities_observed = unique(communities_numbers)
+
+community_info_vector = c()
+for(i in 1:length(communities_observed)){
+  assign(paste("Community_", communities_observed[i], "_info", collapse = "", sep = ""), France_Carabidae_with_communities[France_Carabidae_with_communities$communities_numbers == communities_observed[i], ])
+  community_info_vector = c(community_info_vector, paste("Community_", communities_observed[i], "_info", collapse = "", sep = ""))
+}
+```
+
+##Part 5/6 (Getting information on common species within communities)
+
+```{r}
+sink("common_species_pairs_by_community.txt")
+cat("")
+sink()
+
+for(i in 1:length(community_info_vector)){
+  community_examine = get(community_info_vector[i])
+  community_examine_species = unique(community_examine$species_name)
+  if(length(community_examine_species) > 1){
+    if(length(community_examine_species) == 2){
+      sink("common_species_pairs_by_community.txt", append = TRUE)
+      cat(community_info_vector[i])
+      cat(";")
+      cat(community_examine_species[1])
+      cat(";")
+      cat(community_examine_species[2])
+      sink()
+      if(i < length(community_info_vector)){
+        sink("common_species_pairs_by_community.txt", append = TRUE)
+        cat("\n")
+        sink()
+      }
+    }
+    if(length(community_examine_species) > 2){
+      sorting_by_prevalence_intermediate = community_examine_species
+      sorting_by_prevalence = sorting_by_prevalence_intermediate
+      for(q in 1:length(sorting_by_prevalence)){
+        sorting_by_prevalence[q] = length(community_examine$species_name[community_examine$species_name == sorting_by_prevalence_intermediate[q]])
+      }
+      max_occurrence = max(sorting_by_prevalence)
+      index_of_max_occurrence = c()
+      for(z in 1:length(sorting_by_prevalence)){
+        if(sorting_by_prevalence[z] == max_occurrence){
+          index_of_max_occurrence = c(index_of_max_occurrence, z)
+        }
+      }
+      if(length(index_of_max_occurrence) > 1){
+        sink("common_species_pairs_by_community.txt", append = TRUE)
+        cat(community_info_vector[i])
+        cat(";")
+        cat(sorting_by_prevalence_intermediate[index_of_max_occurrence[1]])
+        cat(";")
+        cat(sorting_by_prevalence_intermediate[index_of_max_occurrence[2]])
+        if(i < length(community_info_vector)){
+          cat("\n")
+        }
+        sink()
+      }
+      if(length(index_of_max_occurrence) == 1){
+        most_prevalent_species = sorting_by_prevalence_intermediate[index_of_max_occurrence[1]]
+        community_examine_without_most_prevalent = community_examine[community_examine$species_name != most_prevalent_species, ]
+        looking_for_second_most_prevalent = unique(community_examine_without_most_prevalent$species_name)
+        looking_for_second_most_prevalent_ind = looking_for_second_most_prevalent
+        for(u in 1:length(looking_for_second_most_prevalent_ind)){
+          looking_for_second_most_prevalent_ind[u] = length(community_examine_without_most_prevalent$species_name[community_examine_without_most_prevalent$species_name == looking_for_second_most_prevalent[u]])
+        }
+        second_max_occurrence = max(looking_for_second_most_prevalent_ind)
+        index_of_second_max_occurrence = c()
+        for(g in 1:length(looking_for_second_most_prevalent)){
+          if(looking_for_second_most_prevalent_ind[g] == second_max_occurrence){
+            index_of_second_max_occurrence = c(index_of_second_max_occurrence, g)
+          }
+        }
+        sink("common_species_pairs_by_community.txt", append = TRUE)
+        cat(community_info_vector[i])
+        cat(";")
+        cat(most_prevalent_species)
+        cat(";")
+        cat(looking_for_second_most_prevalent[index_of_second_max_occurrence[1]])
+        if(i < length(community_info_vector)){
+          cat("\n")
+        }
+        sink()
+      }
+    }
+  }
+}
+
+Common_Species_by_Community = read.csv("common_species_pairs_by_community.txt", sep = ";", header = FALSE)
+
+#Distance between species sequences
+sink("Community_Species_Figure.txt")
+cat("Community―――Most Prevalent Species in the Community―――Kimura's 2-Parameters Distance Between Both Species' COI-5P Genes")
+cat("\n")
+sink()
+
+for(v in 1:length(Common_Species_by_Community$V1)){
+  sink("Community_Species_Figure.txt", append = TRUE)
+  cat(Common_Species_by_Community$V1[v])
+  cat("―――")
+  cat(Common_Species_by_Community$V2[v])
+  cat(" & ")
+  cat(Common_Species_by_Community$V3[v])
+  cat("―――")
+  sink()
+  
+  for(b in 1:length(colnames(Carabidae_DNA_string_set_distance))){
+    if(identical(colnames(Carabidae_DNA_string_set_distance)[b], Common_Species_by_Community$V2[v])){
+      index_colnames_one = b
+    }
+    if(identical(colnames(Carabidae_DNA_string_set_distance)[b], Common_Species_by_Community$V3[v])){
+      index_colnames_two = b
+    }
+  }
+  sink("Community_Species_Figure.txt", append = TRUE)
+  cat(Carabidae_DNA_string_set_distance[index_colnames_one, index_colnames_two])
+  cat("\n")
+  sink()
+}
+sink()
+
+Common_Species_Figure_intermedate = readLines("Community_Species_Figure.txt")
+
+Common_Species_Figure = sort(Common_Species_Figure_intermedate)
+print(Common_Species_Figure)
+```
+
+##Part 6/6 (Mapping the communities)
+
+```{r}
+#Attaching library maps
+library(maps)
+
+sink("Kimura_distance.txt")
+cat("Kimuras_2Parameters_Distance_Between_Both_Species_COI5P_Genes")
+cat("\n")
+sink()
+
+for(v in 1:length(Common_Species_by_Community$V1)){
+  for(b in 1:length(colnames(Carabidae_DNA_string_set_distance))){
+    if(identical(colnames(Carabidae_DNA_string_set_distance)[b], Common_Species_by_Community$V2[v])){
+      index_colnames_one = b
+    }
+    if(identical(colnames(Carabidae_DNA_string_set_distance)[b], Common_Species_by_Community$V3[v])){
+      index_colnames_two = b
+    }
+  }
+  sink("Kimura_distance.txt", append = TRUE)
+  cat(Carabidae_DNA_string_set_distance[index_colnames_one, index_colnames_two])
+  cat("\n")
+  sink()
+}
+sink()
+
+kimura_distance = readLines("Kimura_distance.txt")
+max_community_distance = max(kimura_distance)
+min_community_distance = min(kimura_distance)
+
+for(i in 1:length(kimura_distance)){
+  if(kimura_distance[i] == max_community_distance){
+    max_kimura_index = i
+  }
+  if(kimura_distance[i] == min_community_distance){
+    min_kimura_index = i
+  }
+}
+
+max_kimura_community = communities_observed[max_kimura_index]
+min_kimura_community = communities_observed[min_kimura_index]
+
+max_kimura_df = France_Carabidae_with_communities[France_Carabidae_with_communities$communities_numbers == max_kimura_community, ]
+min_kimura_df = France_Carabidae_with_communities[France_Carabidae_with_communities$communities_numbers == min_kimura_community, ]
+
+map()
+points(x = max_kimura_df$lon, y = max_kimura_df$lat, col = "green")
+points(x = min_kimura_df$lon, y = min_kimura_df$lat, col = "red")
+```
