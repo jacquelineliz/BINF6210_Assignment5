@@ -13,7 +13,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Please Note: There appears to be a problem exporting the figure created using the function maps::map. The points on the map are consistently different from those obtained in R.
+Please Note: Upon viewing the PDF output I saw that RMarkdown does not handle the use of the function sink well. Others have expressed the same concern but no solution was provided (https://stackoverflow.com/questions/39131017/sink-wont-print-output-to-text-file-in-rmarkdown accessed December 17). There appears to be a problem exporting the figure created using the function maps::map. The points on the map exported in the pdf are consistently different from those obtained in R.
 
 #Supplementary R Code
 
